@@ -1,19 +1,25 @@
 package com.example.dto;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import java.util.List;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class DepartmentSummary {
     private String departmentId;
     private double averageScore;
-    private List<PerformerInfo> topPerformers;
-    private List<PerformerInfo> lowPerformers;
+    private List<EmployeePerformance> topPerformers;
+    private List<EmployeePerformance> lowPerformers;
 
     @Data
-    public static class PerformerInfo {
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class EmployeePerformance {
         private String employeeId;
         private double overallScore;
-        private Integer rank;
+        private Integer rank; // Optional, only for top performers
     }
 }

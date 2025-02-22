@@ -5,16 +5,16 @@ import com.example.service.PerformanceReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api")
 public class PerformanceReviewController {
 
     @Autowired
     private PerformanceReviewService service;
 
     @PostMapping("/reviews")
-    public ResponseEntity<SubmissionResponse> submitReview(@RequestBody PerformanceReviewRequest request) {
+    public ResponseEntity<SubmissionResponse> submitReview(@Valid @RequestBody PerformanceReviewRequest request) {
         return ResponseEntity.ok(service.submitReview(request));
     }
 

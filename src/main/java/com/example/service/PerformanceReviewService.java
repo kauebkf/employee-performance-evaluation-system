@@ -1,163 +1,221 @@
 package com.example.service;
 
-import com.example.dto.*;
+import com.example.dto.DepartmentSummary;
+import com.example.dto.PeerComparison;
+import com.example.dto.PerformanceReport;
+import com.example.dto.SubmissionResponse;
+import com.example.dto.PerformanceReviewRequest;
+import com.example.model.EmployeeInfo;
+import com.example.model.PerformanceMetrics;
 import com.example.model.PerformanceReview;
 import com.example.repository.PerformanceReviewRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class PerformanceReviewService {
-    
-    @Autowired
-    private PerformanceReviewRepository repository;
+
+    private final PerformanceReviewRepository repository;
+
+    public PerformanceReviewService(PerformanceReviewRepository repository) {
+        this.repository = repository;
+    }
 
     public SubmissionResponse submitReview(PerformanceReviewRequest request) {
+        // Validate request
+        if (request.getEmployeeId() == null || request.getReviewerId() == null) {
+            throw new IllegalArgumentException("Missing required fields: employeeId or reviewerId");
+        }
+        if (request.getMetrics() == null) {
+            throw new IllegalArgumentException("Missing required field: metrics");
+        }
+        if (request.getEmployeeInfo() == null) {
+            throw new IllegalArgumentException("Missing required field: employeeInfo");
+        }
+
+        // Create new review from request
         PerformanceReview review = new PerformanceReview();
         review.setEmployeeId(request.getEmployeeId());
         review.setReviewerId(request.getReviewerId());
         review.setReviewDate(LocalDate.now());
         review.setMetrics(request.getMetrics());
         review.setComments(request.getComments());
-        review.calculateOverallScore();
-        
-        review = repository.save(review);
-        return SubmissionResponse.of(review.getId());
+        review.setEmployeeInfo(request.getEmployeeInfo());
+        review.calculateOverallScore(); // This will validate metrics range
+
+        // Save review
+        PerformanceReview savedReview = repository.save(review);
+
+        // Return response
+        return new SubmissionResponse(savedReview.getId(), "submitted");
     }
 
     public PerformanceReport getEmployeePerformance(String employeeId) {
-        List<PerformanceReview> reviews = repository.findByEmployeeId(employeeId);
-        if (reviews.isEmpty()) {
-            throw new RuntimeException("No reviews found for employee: " + employeeId);
+        List<PerformanceReview> allReviews = repository.findByEmployeeId(employeeId);
+        if (allReviews.isEmpty()) {
+            throw new IllegalArgumentException("No reviews found for employee: " + employeeId);
         }
 
-        PerformanceReport report = new PerformanceReport();
-        report.setEmployeeId(employeeId);
-        report.setDepartmentId(reviews.get(0).getEmployeeInfo().getDepartmentId());
-        report.setReviews(reviews);
-        
-        double averageScore = reviews.stream()
-            .mapToDouble(PerformanceReview::getOverallScore)
-            .average()
-            .orElse(0.0);
-        report.setAverageScore(averageScore);
+        // Get latest review for department info
+        PerformanceReview latestReview = allReviews.stream()
+                .max(Comparator.comparing(PerformanceReview::getReviewDate))
+                .orElseThrow();
+
+        // Calculate overall average
+        double averageScore = allReviews.stream()
+                .mapToDouble(PerformanceReview::getOverallScore)
+                .average()
+                .orElse(0.0);
 
         // Calculate trends
         LocalDate now = LocalDate.now();
         LocalDate quarterAgo = now.minusMonths(3);
         LocalDate yearAgo = now.minusYears(1);
 
+        // Get reviews within last quarter
         List<PerformanceReview> quarterReviews = repository.findByEmployeeIdAndReviewDateBetween(
-            employeeId, quarterAgo, now);
+                employeeId, quarterAgo, now);
+        double quarterAverage = quarterReviews.stream()
+                .mapToDouble(PerformanceReview::getOverallScore)
+                .average()
+                .orElse(0.0);
+
+        // Get reviews within last year
         List<PerformanceReview> yearReviews = repository.findByEmployeeIdAndReviewDateBetween(
-            employeeId, yearAgo, now);
+                employeeId, yearAgo, now);
+        double yearAverage = yearReviews.stream()
+                .mapToDouble(PerformanceReview::getOverallScore)
+                .average()
+                .orElse(0.0);
 
-        PerformanceReport.PerformanceTrends trends = new PerformanceReport.PerformanceTrends();
-        trends.setLastQuarter(calculateAverage(quarterReviews));
-        trends.setLastYear(calculateAverage(yearReviews));
-        report.setTrends(trends);
+        // Convert reviews to DTO format
+        List<PerformanceReport.Review> reviewDTOs = allReviews.stream()
+                .map(review -> {
+                    PerformanceReport.Review dto = new PerformanceReport.Review();
+                    dto.setReviewDate(review.getReviewDate());
+                    dto.setMetrics(review.getMetrics());
+                    dto.setComments(review.getComments());
+                    dto.setOverallScore(review.getOverallScore());
+                    return dto;
+                })
+                .collect(Collectors.toList());
 
+        // Create and return report
+        PerformanceReport report = new PerformanceReport();
+        report.setEmployeeId(employeeId);
+        report.setDepartmentId(latestReview.getEmployeeInfo().getDepartmentId());
+        report.setAverageScore(Math.round(averageScore * 100.0) / 100.0);
+        report.setReviews(reviewDTOs);
+        report.setTrends(new PerformanceReport.Trends(Math.round(quarterAverage * 100.0) / 100.0, Math.round(yearAverage * 100.0) / 100.0));
         return report;
     }
 
     public PeerComparison getPeerComparison(String employeeId) {
-        List<PerformanceReview> employeeReviews = repository.findByEmployeeId(employeeId);
-        if (employeeReviews.isEmpty()) {
-            throw new RuntimeException("No reviews found for employee: " + employeeId);
+        List<PerformanceReview> reviews = repository.findByEmployeeId(employeeId);
+        if (reviews.isEmpty()) {
+            throw new IllegalArgumentException("No reviews found for employee: " + employeeId);
         }
 
-        PerformanceReview latestReview = employeeReviews.get(0);
+        // Get the employee's latest review for current role and department
+        PerformanceReview latestReview = reviews.stream()
+                .max(Comparator.comparing(PerformanceReview::getReviewDate))
+                .orElseThrow();
+
+        // Calculate employee's average score
+        double employeeAvgScore = reviews.stream()
+                .mapToDouble(PerformanceReview::getOverallScore)
+                .average()
+                .orElse(0.0);
+
+        // Get peer scores
         String departmentId = latestReview.getEmployeeInfo().getDepartmentId();
         String role = latestReview.getEmployeeInfo().getRole();
+        List<PerformanceReviewRepository.AggregationResult> peers = repository.getPeerAggregation(departmentId, role);
 
-        // Get employee's average score
-        double employeeAverage = calculateAverage(employeeReviews);
+        // Calculate peer average (excluding the current employee)
+        List<PerformanceReviewRepository.AggregationResult> peerScores = peers.stream()
+                .filter(p -> !p.getId().equals(employeeId))
+                .collect(Collectors.toList());
 
-        // Get peer scores using aggregation
-        List<PerformanceReviewRepository.PeerAggregationResult> peerScores = 
-            repository.getPeerAggregation(departmentId, role);
-
-        // Calculate peer average
         double peerAverage = peerScores.stream()
-            .mapToDouble(PerformanceReviewRepository.PeerAggregationResult::getAvgScore)
-            .average()
-            .orElse(0.0);
+                .mapToDouble(PerformanceReviewRepository.AggregationResult::getAvgScore)
+                .average()
+                .orElse(0.0);
 
-        // Calculate percentile rank using the formula P = (r/N) * 100
-        long scoresBelow = peerScores.stream()
-            .filter(peer -> peer.getAvgScore() < employeeAverage)
-            .count();
-        double percentileRank = ((double) scoresBelow / peerScores.size()) * 100;
+        // Calculate percentile rank
+        long peersBelow = peerScores.stream()
+                .filter(p -> p.getAvgScore() < employeeAvgScore)
+                .count();
 
+        double percentileRank = peerScores.isEmpty() ? 100.0 : 
+                               (double) peersBelow / peerScores.size() * 100.0;
+
+        // Create response
         PeerComparison comparison = new PeerComparison();
         comparison.setEmployeeId(employeeId);
         comparison.setDepartmentId(departmentId);
         comparison.setRole(role);
-        comparison.setAverageScore(employeeAverage);
-        comparison.setPeerAverageScore(peerAverage);
-        comparison.setPercentileRank(percentileRank);
+        comparison.setAverageScore(Math.round(employeeAvgScore * 100.0) / 100.0);
+        comparison.setPercentileRank(Math.round(percentileRank * 100.0) / 100.0);
+        comparison.setPeerAverageScore(Math.round(peerAverage * 100.0) / 100.0);
 
         return comparison;
     }
 
     public DepartmentSummary getDepartmentSummary(String departmentId) {
-        List<PerformanceReviewRepository.DepartmentAggregationResult> results = 
-            repository.getDepartmentAggregation(departmentId);
-        
+        List<PerformanceReviewRepository.DepartmentResult> results = 
+                repository.getDepartmentAggregation(departmentId);
+
         if (results.isEmpty()) {
-            throw new RuntimeException("No reviews found for department: " + departmentId);
+            throw new IllegalArgumentException("No reviews found for department: " + departmentId);
         }
 
         // Calculate department average
         double departmentAverage = results.stream()
-            .mapToDouble(PerformanceReviewRepository.DepartmentAggregationResult::getAvgScore)
-            .average()
-            .orElse(0.0);
+                .mapToDouble(PerformanceReviewRepository.DepartmentResult::getAvgScore)
+                .average()
+                .orElse(0.0);
 
-        // Sort by score for top and low performers
-        var sortedResults = results.stream()
-            .sorted(Comparator.comparingDouble(
-                PerformanceReviewRepository.DepartmentAggregationResult::getAvgScore).reversed())
-            .collect(Collectors.toList());
+        // Split results into top and low performers
+        List<PerformanceReviewRepository.DepartmentResult> highScorers = results.stream()
+                .filter(r -> r.getAvgScore() > 70.0)
+                .sorted(Comparator.comparingDouble(PerformanceReviewRepository.DepartmentResult::getAvgScore).reversed())
+                .collect(Collectors.toList());
+
+        List<PerformanceReviewRepository.DepartmentResult> lowScorers = results.stream()
+                .filter(r -> r.getAvgScore() <= 70.0)
+                .sorted(Comparator.comparingDouble(PerformanceReviewRepository.DepartmentResult::getAvgScore).reversed())
+                .collect(Collectors.toList());
+
+        // Get top 3 performers (must have score > 70)
+        List<DepartmentSummary.EmployeePerformance> topPerformers = highScorers.stream()
+                .limit(3)
+                .map(result -> new DepartmentSummary.EmployeePerformance(
+                        result.getId(),
+                        Math.round(result.getAvgScore() * 100.0) / 100.0,
+                        highScorers.indexOf(result) + 1))
+                .collect(Collectors.toList());
+
+        // Get low performers (score <= 70), sorted by score descending
+        List<DepartmentSummary.EmployeePerformance> lowPerformers = lowScorers.stream()
+                .map(result -> new DepartmentSummary.EmployeePerformance(
+                        result.getId(),
+                        Math.round(result.getAvgScore() * 100.0) / 100.0,
+                        null))
+                .collect(Collectors.toList());
 
         DepartmentSummary summary = new DepartmentSummary();
         summary.setDepartmentId(departmentId);
-        summary.setAverageScore(departmentAverage);
-
-        // Get top 2 performers
-        summary.setTopPerformers(sortedResults.stream()
-            .limit(2)
-            .map(result -> {
-                var info = new DepartmentSummary.PerformerInfo();
-                info.setEmployeeId(result.getId());
-                info.setOverallScore(result.getAvgScore());
-                info.setRank(sortedResults.indexOf(result) + 1);
-                return info;
-            })
-            .collect(Collectors.toList()));
-
-        // Get bottom 2 performers
-        summary.setLowPerformers(sortedResults.stream()
-            .skip(Math.max(0, sortedResults.size() - 2))
-            .map(result -> {
-                var info = new DepartmentSummary.PerformerInfo();
-                info.setEmployeeId(result.getId());
-                info.setOverallScore(result.getAvgScore());
-                return info;
-            })
-            .collect(Collectors.toList()));
+        summary.setAverageScore(Math.round(departmentAverage * 100.0) / 100.0);
+        summary.setTopPerformers(topPerformers);
+        summary.setLowPerformers(lowPerformers);
 
         return summary;
-    }
-
-    private double calculateAverage(List<PerformanceReview> reviews) {
-        return reviews.stream()
-            .mapToDouble(PerformanceReview::getOverallScore)
-            .average()
-            .orElse(0.0);
     }
 }
