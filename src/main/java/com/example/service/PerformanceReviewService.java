@@ -5,6 +5,7 @@ import com.example.dto.PeerComparison;
 import com.example.dto.PerformanceReport;
 import com.example.dto.SubmissionResponse;
 import com.example.dto.PerformanceReviewRequest;
+import com.example.model.EmployeeInfo;
 import com.example.model.PerformanceReview;
 import com.example.repository.PerformanceReviewRepository;
 import org.springframework.stereotype.Service;
@@ -34,15 +35,24 @@ public class PerformanceReviewService {
         if (request.getEmployeeInfo() == null) {
             throw new IllegalArgumentException("Missing required field: employeeInfo");
         }
+        if (request.getDepartment() == null || request.getRole() == null) {
+            throw new IllegalArgumentException("Missing required fields: department or role");
+        }
 
         // Create new review from request
         PerformanceReview review = new PerformanceReview();
         review.setEmployeeId(request.getEmployeeId());
         review.setReviewerId(request.getReviewerId());
-        review.setReviewDate(LocalDate.now());
+        review.setReviewDate(LocalDate.parse(request.getReviewDate()));
         review.setMetrics(request.getMetrics());
         review.setComments(request.getComments());
-        review.setEmployeeInfo(request.getEmployeeInfo());
+
+        // Set employee info from request
+        EmployeeInfo employeeInfo = request.getEmployeeInfo();
+        employeeInfo.setDepartmentId(request.getDepartment()); // Override with latest department
+        employeeInfo.setRole(request.getRole()); // Override with latest role
+        review.setEmployeeInfo(employeeInfo);
+
         review.calculateOverallScore(); // This will validate metrics range
 
         // Save review
@@ -92,6 +102,7 @@ public class PerformanceReviewService {
 
         // Convert reviews to DTO format
         List<PerformanceReport.Review> reviewDTOs = allReviews.stream()
+                .sorted(Comparator.comparing(PerformanceReview::getReviewDate).reversed())
                 .map(review -> {
                     PerformanceReport.Review dto = new PerformanceReport.Review();
                     dto.setReviewDate(review.getReviewDate());
@@ -139,6 +150,7 @@ public class PerformanceReviewService {
                 .filter(p -> !p.getId().equals(employeeId))
                 .collect(Collectors.toList());
 
+        // Calculate peer average
         double peerAverage = peerScores.stream()
                 .mapToDouble(PerformanceReviewRepository.AggregationResult::getAvgScore)
                 .average()
@@ -146,13 +158,13 @@ public class PerformanceReviewService {
 
         // Calculate percentile rank
         long peersBelow = peerScores.stream()
-                .filter(p -> p.getAvgScore() < employeeAvgScore)
+                .filter(p -> p.getAvgScore() <= employeeAvgScore)  
                 .count();
 
         double percentileRank = peerScores.isEmpty() ? 100.0 : 
                                (double) peersBelow / peerScores.size() * 100.0;
 
-        // Create response
+        // Create response with rounded scores
         PeerComparison comparison = new PeerComparison();
         comparison.setEmployeeId(employeeId);
         comparison.setDepartmentId(departmentId);
@@ -201,6 +213,7 @@ public class PerformanceReviewService {
                         null))
                 .collect(Collectors.toList());
 
+        // Create and return summary
         DepartmentSummary summary = new DepartmentSummary();
         summary.setDepartmentId(departmentId);
         summary.setAverageScore(Math.round(departmentAverage * 100.0) / 100.0);
