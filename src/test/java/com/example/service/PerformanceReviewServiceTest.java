@@ -426,6 +426,36 @@ class PerformanceReviewServiceTest {
     }
 
     @Test
+    void getDepartmentSummary_NoLowPerformers_HandlesCorrectly() {
+        String departmentId = "dev_dept";
+        
+        // Create department results with all high scores
+        List<PerformanceReviewRepository.DepartmentResult> results = Arrays.asList(
+            createDepartmentResult("emp1", 95.0, "developer"),
+            createDepartmentResult("emp2", 90.0, "developer")  // Only 2 employees
+        );
+
+        when(repository.getDepartmentAggregation(departmentId)).thenReturn(results);
+
+        DepartmentSummary summary = service.getDepartmentSummary(departmentId);
+
+        assertEquals(departmentId, summary.getDepartmentId());
+        assertEquals(92.5, summary.getAverageScore(), 0.01);
+        assertEquals(2, summary.getTopPerformers().size());
+        assertTrue(summary.getLowPerformers().isEmpty());
+        
+        // Verify top performers order
+        var topPerformers = summary.getTopPerformers();
+        assertEquals("emp1", topPerformers.get(0).getEmployeeId());
+        assertEquals(95.0, topPerformers.get(0).getOverallScore(), 0.01);
+        assertEquals(Integer.valueOf(1), topPerformers.get(0).getRank());
+        
+        assertEquals("emp2", topPerformers.get(1).getEmployeeId());
+        assertEquals(90.0, topPerformers.get(1).getOverallScore(), 0.01);
+        assertEquals(Integer.valueOf(2), topPerformers.get(1).getRank());
+    }
+
+    @Test
     void getDepartmentSummary_NoReviews_ThrowsException() {
         String departmentId = "dev_dept";
         when(repository.getDepartmentAggregation(departmentId)).thenReturn(Collections.emptyList());
@@ -439,5 +469,55 @@ class PerformanceReviewServiceTest {
         PerformanceReview review = createReview("emp1", 0);
         review.setMetrics(metrics);
         assertThrows(IllegalArgumentException.class, review::calculateOverallScore);
+    }
+
+    @Test
+    void validateMetrics_NegativeValue_ThrowsExceptionInSubmitReview() {
+        PerformanceMetrics metrics = createMetrics(-1, 90, 85);
+        PerformanceReviewRequest request = createRequest("emp1", "reviewer1", metrics);
+        assertThrows(IllegalArgumentException.class, () -> service.submitReview(request));
+    }
+
+    @Test
+    void validateMetrics_ValueOver100_ThrowsException() {
+        PerformanceMetrics metrics = createMetrics(101, 90, 85);
+        PerformanceReviewRequest request = createRequest("emp1", "reviewer1", metrics);
+        assertThrows(IllegalArgumentException.class, () -> service.submitReview(request));
+    }
+
+    @Test
+    void submitReview_NullComments_Accepted() {
+        PerformanceMetrics metrics = createMetrics(85, 90, 95);
+        PerformanceReviewRequest request = createRequest("emp1", "reviewer1", metrics);
+        request.setComments(null);
+        
+        PerformanceReview savedReview = createReview("emp1", 89.5);
+        savedReview.setId("review1");
+        when(repository.save(any(PerformanceReview.class))).thenReturn(savedReview);
+
+        SubmissionResponse response = service.submitReview(request);
+        assertNotNull(response);
+        assertEquals("review1", response.getReviewId());
+    }
+
+    @Test
+    void getDepartmentSummary_NoLowPerformers_HandlesCorrectly() {
+        String departmentId = "dev_dept";
+        
+        // Create department results with all high scores
+        List<PerformanceReviewRepository.DepartmentResult> results = Arrays.asList(
+            createDepartmentResult("emp1", 95.0, "developer"),
+            createDepartmentResult("emp2", 90.0, "developer"),
+            createDepartmentResult("emp3", 92.0, "developer")
+        );
+
+        when(repository.getDepartmentAggregation(departmentId)).thenReturn(results);
+
+        DepartmentSummary summary = service.getDepartmentSummary(departmentId);
+
+        assertEquals(departmentId, summary.getDepartmentId());
+        assertEquals(92.33, summary.getAverageScore(), 0.01);
+        assertEquals(2, summary.getTopPerformers().size());
+        assertTrue(summary.getLowPerformers().isEmpty());
     }
 }
