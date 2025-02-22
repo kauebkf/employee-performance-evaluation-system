@@ -26,5 +26,5 @@ replay_pid*
 # IDE
 .vscode
 
-# Java Compied files
+# Java Build files
 target
