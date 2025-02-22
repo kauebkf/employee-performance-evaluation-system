@@ -1,0 +1,44 @@
+[
+  {
+    "employeeId": "emp101",
+    "reviewerId": "rev201",
+    "employeeInfo": {
+      "departmentId": "eng001",
+      "role": "Senior Developer"
+    },
+    "metrics": {
+      "goalAchievement": 92,
+      "skillLevel": 90,
+      "teamwork": 88
+    },
+    "comments": "Outstanding technical leadership and problem-solving abilities"
+  },
+  {
+    "employeeId": "emp102",
+    "reviewerId": "rev202",
+    "employeeInfo": {
+      "departmentId": "eng001",
+      "role": "Software Engineer"
+    },
+    "metrics": {
+      "goalAchievement": 85,
+      "skillLevel": 85,
+      "teamwork": 95
+    },
+    "comments": "Excellent team player with strong communication skills"
+  },
+  {
+    "employeeId": "emp103",
+    "reviewerId": "rev203",
+    "employeeInfo": {
+      "departmentId": "eng001",
+      "role": "Junior Developer"
+    },
+    "metrics": {
+      "goalAchievement": 80,
+      "skillLevel": 75,
+      "teamwork": 85
+    },
+    "comments": "Shows great potential and eagerness to learn"
+  }
+]
