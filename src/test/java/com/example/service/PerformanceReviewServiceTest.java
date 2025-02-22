@@ -98,18 +98,17 @@ class PerformanceReviewServiceTest {
 
         // Then
         assertEquals(75.0, summary.getAverageScore());
-        assertEquals(1, summary.getTopPerformers().size());
-        assertEquals(1, summary.getLowPerformers().size());
+        assertEquals(2, summary.getTopPerformers().size());
+        assertEquals(0, summary.getLowPerformers().size());
         
-        // Check top performer
+        // Check top performers
         assertEquals("emp1", summary.getTopPerformers().get(0).getEmployeeId());
         assertEquals(85.0, summary.getTopPerformers().get(0).getOverallScore());
         assertEquals(1, summary.getTopPerformers().get(0).getRank());
 
-        // Check low performer
-        assertEquals("emp2", summary.getLowPerformers().get(0).getEmployeeId());
-        assertEquals(65.0, summary.getLowPerformers().get(0).getOverallScore());
-        assertNull(summary.getLowPerformers().get(0).getRank());
+        assertEquals("emp2", summary.getTopPerformers().get(1).getEmployeeId());
+        assertEquals(65.0, summary.getTopPerformers().get(1).getOverallScore());
+        assertEquals(2, summary.getTopPerformers().get(1).getRank());
     }
 
     @Test
@@ -128,7 +127,7 @@ class PerformanceReviewServiceTest {
         // Then
         assertEquals(85.0, summary.getAverageScore());
         assertEquals(1, summary.getTopPerformers().size());
-        assertTrue(summary.getLowPerformers().isEmpty());
+        assertEquals(0, summary.getLowPerformers().size());
         
         // Check top performer
         assertEquals("emp1", summary.getTopPerformers().get(0).getEmployeeId());
@@ -156,8 +155,8 @@ class PerformanceReviewServiceTest {
 
         // Then
         assertEquals(79.17, summary.getAverageScore(), 0.01);
-        assertEquals(3, summary.getTopPerformers().size());
-        assertEquals(2, summary.getLowPerformers().size());
+        assertEquals(2, summary.getTopPerformers().size());
+        assertEquals(4, summary.getLowPerformers().size());
         
         // Check top performers
         assertEquals("emp1", summary.getTopPerformers().get(0).getEmployeeId());
@@ -167,18 +166,14 @@ class PerformanceReviewServiceTest {
         assertEquals("emp2", summary.getTopPerformers().get(1).getEmployeeId());
         assertEquals(90.0, summary.getTopPerformers().get(1).getOverallScore());
         assertEquals(2, summary.getTopPerformers().get(1).getRank());
-        
-        assertEquals("emp3", summary.getTopPerformers().get(2).getEmployeeId());
-        assertEquals(85.0, summary.getTopPerformers().get(2).getOverallScore());
-        assertEquals(3, summary.getTopPerformers().get(2).getRank());
 
-        // Check low performers
-        assertEquals("emp5", summary.getLowPerformers().get(0).getEmployeeId());
-        assertEquals(65.0, summary.getLowPerformers().get(0).getOverallScore());
+        // Check first two low performers (highest scoring)
+        assertEquals("emp3", summary.getLowPerformers().get(0).getEmployeeId());
+        assertEquals(85.0, summary.getLowPerformers().get(0).getOverallScore());
         assertNull(summary.getLowPerformers().get(0).getRank());
         
-        assertEquals("emp6", summary.getLowPerformers().get(1).getEmployeeId());
-        assertEquals(60.0, summary.getLowPerformers().get(1).getOverallScore());
+        assertEquals("emp4", summary.getLowPerformers().get(1).getEmployeeId());
+        assertEquals(80.0, summary.getLowPerformers().get(1).getOverallScore());
         assertNull(summary.getLowPerformers().get(1).getRank());
     }
 

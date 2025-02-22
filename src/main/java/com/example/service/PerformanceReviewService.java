@@ -182,28 +182,23 @@ public class PerformanceReviewService {
                 .average()
                 .orElse(0.0);
 
-        // Split results into top and low performers
-        List<PerformanceReviewRepository.DepartmentResult> highScorers = results.stream()
-                .filter(r -> r.getAvgScore() > 70.0)
+        // Sort all results by score in descending order
+        List<PerformanceReviewRepository.DepartmentResult> sortedResults = results.stream()
                 .sorted(Comparator.comparingDouble(PerformanceReviewRepository.DepartmentResult::getAvgScore).reversed())
                 .collect(Collectors.toList());
 
-        List<PerformanceReviewRepository.DepartmentResult> lowScorers = results.stream()
-                .filter(r -> r.getAvgScore() <= 70.0)
-                .sorted(Comparator.comparingDouble(PerformanceReviewRepository.DepartmentResult::getAvgScore).reversed())
-                .collect(Collectors.toList());
-
-        // Get top 3 performers (must have score > 70)
-        List<DepartmentSummary.EmployeePerformance> topPerformers = highScorers.stream()
-                .limit(3)
+        // Take top 2 performers
+        List<DepartmentSummary.EmployeePerformance> topPerformers = sortedResults.stream()
+                .limit(2)
                 .map(result -> new DepartmentSummary.EmployeePerformance(
                         result.getId(),
                         Math.round(result.getAvgScore() * 100.0) / 100.0,
-                        highScorers.indexOf(result) + 1))
+                        sortedResults.indexOf(result) + 1))
                 .collect(Collectors.toList());
 
-        // Get low performers (score <= 70), sorted by score descending
-        List<DepartmentSummary.EmployeePerformance> lowPerformers = lowScorers.stream()
+        // All others are low performers
+        List<DepartmentSummary.EmployeePerformance> lowPerformers = sortedResults.stream()
+                .skip(2) // Skip the top 2
                 .map(result -> new DepartmentSummary.EmployeePerformance(
                         result.getId(),
                         Math.round(result.getAvgScore() * 100.0) / 100.0,
