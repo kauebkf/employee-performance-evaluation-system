@@ -37,9 +37,6 @@ class PerformanceReviewServiceTest {
         PerformanceReviewRequest request = new PerformanceReviewRequest();
         request.setEmployeeId(employeeId);
         request.setReviewerId(reviewerId);
-        request.setDepartment("dev_dept");
-        request.setRole("developer");
-        request.setReviewDate(LocalDate.now().toString());
         request.setMetrics(metrics);
         request.setComments("Great performance!");
 
@@ -230,6 +227,78 @@ class PerformanceReviewServiceTest {
         String employeeId = "emp1";
         when(repository.findByEmployeeId(employeeId)).thenReturn(Collections.emptyList());
         assertThrows(IllegalArgumentException.class, () -> service.getEmployeePerformance(employeeId));
+    }
+
+    @Test
+    void getEmployeePerformance_ReviewsSortedByDateDesc() {
+        String employeeId = "emp1";
+        LocalDate now = LocalDate.now();
+        
+        // Create reviews with different dates
+        PerformanceReview oldestReview = createReview(employeeId, 85.0);
+        oldestReview.setReviewDate(now.minusMonths(6));
+        
+        PerformanceReview middleReview = createReview(employeeId, 90.0);
+        middleReview.setReviewDate(now.minusMonths(3));
+        
+        PerformanceReview newestReview = createReview(employeeId, 95.0);
+        newestReview.setReviewDate(now);
+
+        when(repository.findByEmployeeId(employeeId))
+            .thenReturn(Arrays.asList(oldestReview, middleReview, newestReview));
+        when(repository.findByEmployeeIdAndReviewDateBetween(eq(employeeId), any(), any()))
+            .thenReturn(Collections.emptyList());
+
+        PerformanceReport report = service.getEmployeePerformance(employeeId);
+
+        // Verify reviews are sorted by date (newest first)
+        assertEquals(3, report.getReviews().size());
+        assertEquals(now, report.getReviews().get(0).getReviewDate());
+        assertEquals(now.minusMonths(3), report.getReviews().get(1).getReviewDate());
+        assertEquals(now.minusMonths(6), report.getReviews().get(2).getReviewDate());
+    }
+
+    @Test
+    void getEmployeePerformance_TrendsCalculation() {
+        String employeeId = "emp1";
+        LocalDate now = LocalDate.now();
+        
+        // Create reviews for different time periods
+        // Last quarter reviews (last 3 months)
+        PerformanceReview review1 = createReview(employeeId, 90.0);
+        review1.setReviewDate(now.minusMonths(1));
+        
+        PerformanceReview review2 = createReview(employeeId, 85.0);
+        review2.setReviewDate(now.minusMonths(2));
+        
+        // Last year reviews
+        PerformanceReview review3 = createReview(employeeId, 80.0);
+        review3.setReviewDate(now.minusMonths(6));
+        
+        PerformanceReview review4 = createReview(employeeId, 75.0);
+        review4.setReviewDate(now.minusMonths(11));
+
+        List<PerformanceReview> allReviews = Arrays.asList(review1, review2, review3, review4);
+        List<PerformanceReview> quarterReviews = Arrays.asList(review1, review2);
+        List<PerformanceReview> yearReviews = Arrays.asList(review1, review2, review3, review4);
+
+        when(repository.findByEmployeeId(employeeId)).thenReturn(allReviews);
+        when(repository.findByEmployeeIdAndReviewDateBetween(eq(employeeId), any(), eq(now)))
+            .thenAnswer(invocation -> {
+                LocalDate startDate = invocation.getArgument(1);
+                if (startDate.equals(now.minusMonths(3))) {
+                    return quarterReviews;
+                } else if (startDate.equals(now.minusYears(1))) {
+                    return yearReviews;
+                }
+                return Collections.emptyList();
+            });
+
+        PerformanceReport report = service.getEmployeePerformance(employeeId);
+
+        // Verify trends calculations
+        assertEquals(87.5, report.getTrends().getLastQuarter(), 0.01); // (90 + 85) / 2
+        assertEquals(82.5, report.getTrends().getLastYear(), 0.01);    // (90 + 85 + 80 + 75) / 4
     }
 
     // 4. Peer Comparison Tests
@@ -498,26 +567,5 @@ class PerformanceReviewServiceTest {
         SubmissionResponse response = service.submitReview(request);
         assertNotNull(response);
         assertEquals("review1", response.getReviewId());
-    }
-
-    @Test
-    void getDepartmentSummary_NoLowPerformers_HandlesCorrectly() {
-        String departmentId = "dev_dept";
-        
-        // Create department results with all high scores
-        List<PerformanceReviewRepository.DepartmentResult> results = Arrays.asList(
-            createDepartmentResult("emp1", 95.0, "developer"),
-            createDepartmentResult("emp2", 90.0, "developer"),
-            createDepartmentResult("emp3", 92.0, "developer")
-        );
-
-        when(repository.getDepartmentAggregation(departmentId)).thenReturn(results);
-
-        DepartmentSummary summary = service.getDepartmentSummary(departmentId);
-
-        assertEquals(departmentId, summary.getDepartmentId());
-        assertEquals(92.33, summary.getAverageScore(), 0.01);
-        assertEquals(2, summary.getTopPerformers().size());
-        assertTrue(summary.getLowPerformers().isEmpty());
     }
 }

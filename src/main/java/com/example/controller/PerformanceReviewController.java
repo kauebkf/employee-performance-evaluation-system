@@ -1,11 +1,19 @@
 package com.example.controller;
 
-import com.example.dto.*;
+import com.example.dto.DepartmentSummary;
+import com.example.dto.PeerComparison;
+import com.example.dto.PerformanceReport;
+import com.example.dto.PerformanceReviewRequest;
+import com.example.dto.SubmissionResponse;
 import com.example.service.PerformanceReviewService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class PerformanceReviewController {

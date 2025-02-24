@@ -5,7 +5,6 @@ import com.example.dto.PeerComparison;
 import com.example.dto.PerformanceReport;
 import com.example.dto.SubmissionResponse;
 import com.example.dto.PerformanceReviewRequest;
-import com.example.model.EmployeeInfo;
 import com.example.model.PerformanceReview;
 import com.example.repository.PerformanceReviewRepository;
 import org.springframework.stereotype.Service;
