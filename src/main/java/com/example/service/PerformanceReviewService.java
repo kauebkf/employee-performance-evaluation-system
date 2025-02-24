@@ -35,23 +35,15 @@ public class PerformanceReviewService {
         if (request.getEmployeeInfo() == null) {
             throw new IllegalArgumentException("Missing required field: employeeInfo");
         }
-        if (request.getDepartment() == null || request.getRole() == null) {
-            throw new IllegalArgumentException("Missing required fields: department or role");
-        }
 
         // Create new review from request
         PerformanceReview review = new PerformanceReview();
         review.setEmployeeId(request.getEmployeeId());
         review.setReviewerId(request.getReviewerId());
-        review.setReviewDate(LocalDate.parse(request.getReviewDate()));
+        review.setReviewDate(LocalDate.now()); // Set current date
         review.setMetrics(request.getMetrics());
         review.setComments(request.getComments());
-
-        // Set employee info from request
-        EmployeeInfo employeeInfo = request.getEmployeeInfo();
-        employeeInfo.setDepartmentId(request.getDepartment()); // Override with latest department
-        employeeInfo.setRole(request.getRole()); // Override with latest role
-        review.setEmployeeInfo(employeeInfo);
+        review.setEmployeeInfo(request.getEmployeeInfo());
 
         review.calculateOverallScore(); // This will validate metrics range
 

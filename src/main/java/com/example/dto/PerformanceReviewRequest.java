@@ -17,20 +17,13 @@ public class PerformanceReviewRequest {
     @NotNull(message = "Reviewer ID is required")
     private String reviewerId;
     
-    @NotNull(message = "Department is required")
-    private String department;
-    
-    @NotNull(message = "Role is required")
-    private String role;
-    
-    @NotNull(message = "Review date is required")
-    private String reviewDate;
-    
     @NotNull(message = "Performance metrics are required")
     private PerformanceMetrics metrics;
     
     @NotNull(message = "Employee info is required")
     private EmployeeInfo employeeInfo;
+    
+    private String reviewDate;
     
     private String comments;
 }
