@@ -55,18 +55,23 @@ public class PerformanceReviewIT {
             restTemplate.postForEntity("/reviews", request, SubmissionResponse.class);
 
         // Then
+        assertNotNull(submitResponse, "Response should not be null");
         assertEquals(HttpStatus.OK, submitResponse.getStatusCode());
-        assertNotNull(submitResponse.getBody());
-        assertNotNull(submitResponse.getBody().getReviewId());
+        
+        SubmissionResponse submissionResult = submitResponse.getBody();
+        assertNotNull(submissionResult, "Response body should not be null");
+        assertNotNull(submissionResult.getReviewId(), "Review ID should not be null");
 
         // When - Get performance report
         ResponseEntity<PerformanceReport> reportResponse = 
             restTemplate.getForEntity("/employees/emp1/performance", PerformanceReport.class);
 
         // Then
+        assertNotNull(reportResponse, "Report response should not be null");
         assertEquals(HttpStatus.OK, reportResponse.getStatusCode());
+        
         PerformanceReport report = reportResponse.getBody();
-        assertNotNull(report);
+        assertNotNull(report, "Performance report should not be null");
         assertEquals("emp1", report.getEmployeeId());
         assertEquals("dev_dept", report.getDepartmentId());
         assertEquals(89.5, report.getAverageScore(), 0.01); // (85*0.4 + 90*0.3 + 95*0.3)
