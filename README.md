@@ -136,7 +136,7 @@ The project includes a PowerShell script to load sample performance reviews thro
    # Get department summary
    curl http://localhost:8080/departments/eng001/summary
    ```
-  - **You can also connect to the running Kafka service and send messages to be processed, according to the JSON format specified.**
+  - **You can also connect to the running Kafka service and send messages to be processed, according to the JSON format specified. The topic name is `performance-reviews`**
 
 ## Docker Commands
 
